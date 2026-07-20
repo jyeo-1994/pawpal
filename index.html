@@ -580,6 +580,7 @@ function showApp() {
 // ===== DATA =====
 const DEFAULT_PROFILE = { name:'Tofu', breed:'West Highland White Terrier', dob:'2024-04-07', gender:'Male', weight:'9.5', neutered:'' };
 let profile={...DEFAULT_PROFILE}, walks=[], trialLog=[], records=[], reminders=[], claims=[], policy={}, feeding={};
+let dataLoaded = false;
 
 async function apiGet(k) {
   const res = await fetch('/api/db?k=' + encodeURIComponent(k));
@@ -598,10 +599,12 @@ async function loadAll() {
   claims    = state?.claims    || [];
   policy    = state?.policy    || {};
   feeding   = state?.feeding   || {};
+  dataLoaded = true;
 }
 
 let saveTimer = null;
 function saveAll() {
+  if (!dataLoaded) return;
   if(saveTimer) clearTimeout(saveTimer);
   setSaveStatus('saving');
   saveTimer = setTimeout(async () => {
