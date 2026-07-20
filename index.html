@@ -862,7 +862,7 @@ async function checkIngredient(){
   r.style.display='block';r.className='ingredient-result';c.innerHTML='<span class="spinner"></span> Checking...';
   try{
     const res=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,system:'You are a dog safety expert. Respond ONLY with valid JSON: {"status":"safe"|"unsafe"|"caution","summary":"one sentence","detail":"2-3 sentences","trial_note":"note about food trial compliance if relevant"}',messages:[{role:'user',content:`Is "${ing}" safe for a West Highland White Terrier on a pork-only food trial (restricted to pork protein only — no chicken, beef, lamb, duck, fish, venison, or any other proteins; no commercial treats or table scraps)?`}]})});
-    const d=await res.json();let j;try{j=JSON.parse(d.content[0].text);}catch{j={status:'caution',summary:'Could not parse response',detail:d.content[0].text,trial_note:''};}
+    const d=await res.json();let j;try{const raw=d.content[0].text.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();j=JSON.parse(raw);}catch{j={status:'caution',summary:'Could not parse response',detail:d.content[0].text,trial_note:''};}
     r.className='ingredient-result '+(j.status==='safe'?'safe':j.status==='unsafe'?'unsafe':'caution');
     const icon=j.status==='safe'?'✅':j.status==='unsafe'?'🚫':'⚠️';
     c.innerHTML=`<strong>${icon} ${j.summary}</strong><br><span style="color:var(--gray-5)">${j.detail}</span>${j.trial_note?`<br><em style="font-size:13px">${j.trial_note}</em>`:''}`;
