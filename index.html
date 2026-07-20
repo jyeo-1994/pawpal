@@ -241,6 +241,10 @@
           <div class="card">
             <div class="card-title"><span>📈</span> Latest food trial entry</div>
             <div id="dash-trial-summary" style="font-size:14px;color:var(--text-muted);">No trial entries yet. Add your first in Diet &amp; weight.</div>
+            <div id="dash-feeding-summary" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--gray-2);display:none;">
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Current feeding</div>
+              <div id="dash-feeding-text" style="font-size:14px;"></div>
+            </div>
             <div style="margin-top:12px;"><button class="btn btn-secondary btn-sm" onclick="showPanel('diet')">Go to food trial log</button></div>
           </div>
         </div>
@@ -275,6 +279,32 @@
         </div>
         <button class="btn btn-primary" onclick="calcDiet()">Calculate feeding plan ✦</button>
         <div id="diet-result" style="margin-top:1rem;display:none;"><div class="card"><div class="card-title">📊 Feeding plan</div><div id="diet-result-content" style="font-size:14px;line-height:1.7;"></div></div></div>
+
+        <!-- CURRENT FEEDING PLAN -->
+        <div style="margin-top:1.5rem;">
+          <div class="section-heading" style="font-size:17px;margin-bottom:4px;">🍽️ Current feeding plan</div>
+          <div class="section-subtext" style="margin-bottom:1rem;">Tofu's day-to-day feeding details.</div>
+          <div class="card">
+            <div class="grid-2" style="gap:10px;margin-bottom:12px;">
+              <div style="grid-column:span 2;"><label>Food brand / name</label><input type="text" id="feed-brand" placeholder="e.g. Ziwi Peak Pork, homecooked pork & sweet potato"/></div>
+              <div><label>Daily amount</label><input type="text" id="feed-amount" placeholder="e.g. 150g, 1 cup"/></div>
+              <div><label>Meals per day</label>
+                <select id="feed-meals">
+                  <option value="">Select...</option>
+                  <option>1 meal</option><option>2 meals</option><option>3 meals</option><option>Free feeding</option>
+                </select>
+              </div>
+              <div><label>Meal times</label><input type="text" id="feed-times" placeholder="e.g. 7am and 6pm"/></div>
+              <div><label>Treats allowed</label><input type="text" id="feed-treats" placeholder="e.g. None during food trial, or small pork pieces only"/></div>
+              <div style="grid-column:span 2;"><label>Additional notes</label><textarea id="feed-notes" placeholder="e.g. Always serve at room temperature. Add warm water to kibble."></textarea></div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="btn btn-primary btn-sm" onclick="saveFeeding()">Save feeding plan</button>
+              <span id="feed-saved-msg" style="font-size:13px;color:var(--green);display:none;">✓ Saved</span>
+            </div>
+          </div>
+        </div>
+
         <div style="margin-top:1.5rem;">
           <div class="section-heading" style="font-size:17px;margin-bottom:4px;">🗒️ Food trial log</div>
           <div class="section-subtext" style="margin-bottom:1rem;">Record weekly observations to share with your vet.</div>
@@ -549,7 +579,7 @@ function showApp() {
 
 // ===== DATA =====
 const DEFAULT_PROFILE = { name:'Tofu', breed:'West Highland White Terrier', dob:'2024-04-07', gender:'Male', weight:'9.5', neutered:'' };
-let profile={...DEFAULT_PROFILE}, walks=[], trialLog=[], records=[], reminders=[], claims=[], policy={};
+let profile={...DEFAULT_PROFILE}, walks=[], trialLog=[], records=[], reminders=[], claims=[], policy={}, feeding={};
 
 async function apiGet(k) {
   const res = await fetch('/api/db?k=' + encodeURIComponent(k));
@@ -567,6 +597,7 @@ async function loadAll() {
   reminders = state?.reminders || [];
   claims    = state?.claims    || [];
   policy    = state?.policy    || {};
+  feeding   = state?.feeding   || {};
 }
 
 let saveTimer = null;
@@ -575,7 +606,7 @@ function saveAll() {
   setSaveStatus('saving');
   saveTimer = setTimeout(async () => {
     try {
-      const res = await fetch('/api/db', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ k:'app_state', value:{ profile, walks, trial:trialLog, records, reminders, claims, policy } }) });
+      const res = await fetch('/api/db', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ k:'app_state', value:{ profile, walks, trial:trialLog, records, reminders, claims, policy, feeding } }) });
       if(!res.ok) throw new Error();
       setSaveStatus('saved');
     } catch(e) {
@@ -613,7 +644,7 @@ const REM_ICONS={'Vaccination':'💉','Flea / tick treatment':'🐛','Vet appoin
 // ===== RENDER ALL =====
 function renderAll(){
   renderProfile(); renderWalks(); renderTrialLog(); renderRecords();
-  renderReminders(); renderClaims(); renderPolicy();
+  renderReminders(); renderClaims(); renderPolicy(); renderFeeding();
   const photo=localStorage.getItem('pp_photo'); if(photo) applyPhoto(photo);
   const n=new Date(); n.setMinutes(n.getMinutes()-n.getTimezoneOffset());
   document.getElementById('walk-time').value=n.toISOString().slice(0,16);
@@ -843,7 +874,45 @@ function logClaim(){
 }
 function deleteClaim(id){claims=claims.filter(c=>c.id!==id);saveAll();renderClaims();}
 
-// ===== AI =====
+// ===== FEEDING PLAN =====
+function renderFeeding() {
+  document.getElementById('feed-brand').value  = feeding.brand  || '';
+  document.getElementById('feed-amount').value = feeding.amount || '';
+  document.getElementById('feed-meals').value  = feeding.meals  || '';
+  document.getElementById('feed-times').value  = feeding.times  || '';
+  document.getElementById('feed-treats').value = feeding.treats || '';
+  document.getElementById('feed-notes').value  = feeding.notes  || '';
+  // Update dashboard
+  const sumWrap = document.getElementById('dash-feeding-summary');
+  const sumText = document.getElementById('dash-feeding-text');
+  if(sumWrap && sumText && (feeding.brand || feeding.amount)) {
+    sumWrap.style.display = 'block';
+    sumText.innerHTML = [
+      feeding.brand  ? `<strong>${feeding.brand}</strong>` : '',
+      feeding.amount ? feeding.amount : '',
+      feeding.meals  ? `· ${feeding.meals}` : '',
+      feeding.times  ? `· ${feeding.times}` : ''
+    ].filter(Boolean).join(' ');
+  } else if(sumWrap) {
+    sumWrap.style.display = 'none';
+  }
+}
+function saveFeeding() {
+  feeding = {
+    brand:  document.getElementById('feed-brand').value,
+    amount: document.getElementById('feed-amount').value,
+    meals:  document.getElementById('feed-meals').value,
+    times:  document.getElementById('feed-times').value,
+    treats: document.getElementById('feed-treats').value,
+    notes:  document.getElementById('feed-notes').value,
+  };
+  saveAll();
+  const msg = document.getElementById('feed-saved-msg');
+  msg.style.display = 'inline';
+  setTimeout(() => msg.style.display = 'none', 2000);
+}
+
+
 async function callClaude(sys,msg,el){
   el.innerHTML='<span class="spinner"></span> Thinking...';
   try{
