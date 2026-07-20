@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PawPal</title>
+<style>
+  :root {
+    --green:#3a7d44;--green-light:#e8f5ea;--green-mid:#a8d5b0;
+    --amber:#c47b2b;--amber-light:#fdf3e3;
+    --red:#c0392b;--red-light:#fdecea;
+    --blue:#2563a8;--blue-light:#e8f1fb;
+    --purple:#6d3fbf;--purple-light:#f0ebfb;
+    --gray-0:#ffffff;--gray-1:#f7f8f7;--gray-2:#eef0ee;
+    --gray-3:#d8ddd8;--gray-4:#9aa89a;--gray-5:#5a665a;--gray-6:#2c342c;
+    --text:#1e261e;--text-muted:#6b7a6b;
+    --radius:10px;--shadow:0 1px 3px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.05);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-1);color:var(--text);min-height:100vh;font-size:15px;line-height:1.5;}
+
+  /* Auth & loading screens */
+  .fullscreen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:1000;}
+  #auth-screen{background:var(--green);}
+  #loading-screen{background:var(--gray-1);display:none;}
+  .auth-card{background:var(--gray-0);border-radius:16px;padding:2rem;text-align:center;width:320px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,0.18);}
+  .auth-logo{font-size:52px;margin-bottom:0.5rem;}
+  .auth-title{font-size:22px;font-weight:700;margin-bottom:4px;}
+  .auth-sub{font-size:14px;color:var(--text-muted);margin-bottom:1.5rem;}
+  .auth-error{color:var(--red);font-size:13px;margin-bottom:10px;display:none;}
+  .auth-note{font-size:12px;color:var(--text-muted);margin-top:1rem;}
+  .auth-btn{width:100%;justify-content:center;}
+  .auth-input{margin-bottom:12px;}
+
+  /* Save status */
+  .save-status{position:fixed;bottom:1rem;right:1rem;font-size:12px;padding:5px 12px;border-radius:20px;background:var(--gray-0);border:1px solid var(--gray-2);box-shadow:var(--shadow);opacity:0;transition:opacity 0.25s;z-index:500;pointer-events:none;}
+  .save-status.visible{opacity:1;}
+  .save-status.saving{color:var(--text-muted);}
+  .save-status.saved{color:var(--green);}
+  .save-status.error{color:var(--red);border-color:#f5b5b0;}
+
+  /* App layout */
+  .header{background:var(--green);color:white;padding:0 1.5rem;display:flex;align-items:center;gap:12px;height:56px;position:sticky;top:0;z-index:100;}
+  .header-logo{font-size:22px;}
+  .header-title{font-size:18px;font-weight:600;letter-spacing:-0.3px;}
+  .header-dog{margin-left:auto;display:flex;align-items:center;gap:8px;}
+  .dog-avatar{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;font-size:17px;overflow:hidden;}
+  .dog-name{font-size:14px;font-weight:500;color:rgba(255,255,255,0.9);}
+  .layout{display:flex;height:calc(100vh - 56px);overflow:hidden;}
+  .sidebar{width:220px;background:var(--gray-0);border-right:1px solid var(--gray-2);padding:1rem 0;overflow-y:auto;flex-shrink:0;}
+  .sidebar-section{padding:0.4rem 1rem 0.2rem;font-size:11px;font-weight:600;letter-spacing:0.06em;color:var(--text-muted);text-transform:uppercase;margin-top:0.75rem;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:8px 1rem;cursor:pointer;font-size:14px;color:var(--gray-5);border-left:3px solid transparent;transition:all 0.15s;}
+  .nav-item:hover{background:var(--gray-1);color:var(--green);}
+  .nav-item.active{background:var(--green-light);color:var(--green);border-left-color:var(--green);font-weight:500;}
+  .nav-icon{font-size:17px;width:20px;text-align:center;}
+  .main{flex:1;overflow-y:auto;padding:1.5rem;}
+  .panel{display:none;}.panel.active{display:block;}
+  .card{background:var(--gray-0);border:1px solid var(--gray-2);border-radius:var(--radius);padding:1.25rem;box-shadow:var(--shadow);margin-bottom:1rem;}
+  .card-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:0.75rem;display:flex;align-items:center;gap:8px;}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+  .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;}
+  .stat-card{background:var(--gray-0);border:1px solid var(--gray-2);border-radius:var(--radius);padding:1rem;box-shadow:var(--shadow);}
+  .stat-label{font-size:12px;color:var(--text-muted);margin-bottom:4px;}
+  .stat-value{font-size:22px;font-weight:600;color:var(--text);}
+  .stat-sub{font-size:12px;color:var(--text-muted);margin-top:2px;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:500;}
+  .badge-green{background:var(--green-light);color:var(--green);}
+  .badge-amber{background:var(--amber-light);color:var(--amber);}
+  .badge-red{background:var(--red-light);color:var(--red);}
+  .badge-blue{background:var(--blue-light);color:var(--blue);}
+  .badge-purple{background:var(--purple-light);color:var(--purple);}
+  label{display:block;font-size:13px;font-weight:500;color:var(--gray-5);margin-bottom:4px;}
+  input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--gray-3);border-radius:6px;font-size:14px;color:var(--text);background:var(--gray-0);outline:none;transition:border 0.15s;}
+  input:focus,select:focus,textarea:focus{border-color:var(--green);}
+  textarea{resize:vertical;min-height:80px;}
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:6px;font-size:14px;font-weight:500;cursor:pointer;border:none;transition:all 0.15s;}
+  .btn-primary{background:var(--green);color:white;}.btn-primary:hover{background:#2d6337;}
+  .btn-primary:disabled{background:var(--gray-4);cursor:not-allowed;}
+  .btn-secondary{background:var(--gray-1);color:var(--gray-5);border:1px solid var(--gray-3);}.btn-secondary:hover{background:var(--gray-2);}
+  .btn-sm{padding:5px 10px;font-size:13px;}
+  .btn-del{width:22px;height:22px;border-radius:50%;background:none;border:none;color:var(--gray-4);cursor:pointer;font-size:11px;display:inline-flex;align-items:center;justify-content:center;padding:0;transition:all 0.15s;flex-shrink:0;}
+  .btn-del:hover{background:var(--red-light);color:var(--red);}
+  .ai-area{background:var(--green-light);border:1px solid var(--green-mid);border-radius:var(--radius);padding:1rem;margin-bottom:1rem;display:flex;gap:10px;align-items:flex-start;}
+  .ai-avatar{width:28px;height:28px;border-radius:50%;background:var(--green);color:white;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;margin-top:2px;}
+  .ai-text{font-size:14px;color:var(--gray-6);line-height:1.6;}
+  table{width:100%;border-collapse:collapse;font-size:14px;}
+  th{text-align:left;padding:8px 10px;font-size:12px;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--gray-2);text-transform:uppercase;letter-spacing:0.04em;}
+  td{padding:10px;border-bottom:1px solid var(--gray-2);vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:var(--gray-1);}
+  .progress-wrap{background:var(--gray-2);border-radius:4px;height:8px;overflow:hidden;margin-top:6px;}
+  .progress-bar{height:100%;border-radius:4px;transition:width 0.3s;}
+  .section-heading{font-size:20px;font-weight:700;color:var(--text);margin-bottom:4px;}
+  .section-subtext{font-size:14px;color:var(--text-muted);margin-bottom:1.25rem;}
+  .timeline{list-style:none;}
+  .timeline li{display:flex;gap:12px;padding-bottom:1.25rem;position:relative;}
+  .timeline li:not(:last-child)::before{content:'';position:absolute;left:16px;top:28px;bottom:0;width:1px;background:var(--gray-2);}
+  .timeline-dot{width:32px;height:32px;border-radius:50%;background:var(--green-light);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;border:1px solid var(--green-mid);position:relative;z-index:1;}
+  .timeline-body{flex:1;padding-top:4px;}
+  .timeline-title{font-size:14px;font-weight:500;margin-bottom:2px;}
+  .timeline-meta{font-size:12px;color:var(--text-muted);}
+  .pill-group{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1rem;}
+  .pill{padding:5px 12px;border-radius:20px;font-size:13px;cursor:pointer;border:1px solid var(--gray-3);background:var(--gray-0);color:var(--gray-5);transition:all 0.15s;}
+  .pill.active{background:var(--green);color:white;border-color:var(--green);}
+  .pill:hover:not(.active){border-color:var(--green);color:var(--green);}
+  .spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--gray-3);border-top-color:var(--green);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;}
+  .spinner-lg{width:28px;height:28px;border-width:3px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .reminder-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray-2);}
+  .reminder-item:last-child{border-bottom:none;}
+  .reminder-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+  .reminder-body{flex:1;}
+  .reminder-title{font-size:14px;font-weight:500;}
+  .reminder-date{font-size:12px;color:var(--text-muted);}
+  .ingredient-result{padding:1rem;border-radius:var(--radius);font-size:14px;margin-top:1rem;display:none;}
+  .ingredient-result.safe{background:var(--green-light);border:1px solid var(--green-mid);}
+  .ingredient-result.unsafe{background:var(--red-light);border:1px solid #f5b5b0;}
+  .ingredient-result.caution{background:var(--amber-light);border:1px solid #f0c878;}
+  ::-webkit-scrollbar{width:5px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--gray-3);border-radius:3px;}
+  @media(max-width:768px){
+    .sidebar{width:56px;}
+    .sidebar-section,.nav-item span{display:none;}
+    .nav-item{justify-content:center;padding:10px;}
+    .grid-2,.grid-3{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<!-- AUTH SCREEN -->
+<div class="fullscreen" id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">🐾</div>
+    <div class="auth-title">PawPal</div>
+    <div class="auth-sub">Sign in to access Tofu's care companion</div>
+    <input class="auth-input" type="password" id="auth-password" placeholder="Enter your password" />
+    <div class="auth-error" id="auth-error"></div>
+    <button class="btn btn-primary auth-btn" id="auth-btn" onclick="signIn()">Sign in</button>
+    <div class="auth-note">You'll stay signed in for 30 days on this device.</div>
+  </div>
+</div>
+
+<!-- LOADING SCREEN -->
+<div class="fullscreen" id="loading-screen">
+  <div style="text-align:center;">
+    <div style="font-size:52px;margin-bottom:1rem;">🐾</div>
+    <div class="spinner spinner-lg" style="margin:0 auto;border-top-color:var(--green);"></div>
+    <div style="font-size:14px;color:var(--text-muted);margin-top:1rem;" id="loading-msg">Loading Tofu's data...</div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" style="display:none;">
+  <div class="header">
+    <div class="header-logo">🐾</div>
+    <div class="header-title">PawPal</div>
+    <div class="header-dog">
+      <div class="dog-avatar" id="header-avatar">
+        <span id="header-avatar-emoji">🐕</span>
+        <img id="header-avatar-img" src="" alt="" style="display:none;width:100%;height:100%;object-fit:cover;border-radius:50%;"/>
+      </div>
+      <div class="dog-name" id="header-dog-name">Tofu</div>
+      <div style="font-size:12px;color:rgba(255,255,255,0.65);cursor:pointer;margin-left:8px;" onclick="signOut()" title="Sign out">Sign out</div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sidebar-section">Health</div>
+      <div class="nav-item active" data-panel="dashboard"><span class="nav-icon">🏠</span><span>Dashboard</span></div>
+      <div class="nav-item" data-panel="diet"><span class="nav-icon">🥗</span><span>Diet & weight</span></div>
+      <div class="nav-item" data-panel="records"><span class="nav-icon">📋</span><span>Health records</span></div>
+      <div class="nav-item" data-panel="ingredients"><span class="nav-icon">🔍</span><span>Ingredient checker</span></div>
+      <div class="nav-item" data-panel="recipes"><span class="nav-icon">👨‍🍳</span><span>Recipes</span></div>
+      <div class="sidebar-section">Logistics</div>
+      <div class="nav-item" data-panel="walks"><span class="nav-icon">🦮</span><span>Walk log</span></div>
+      <div class="nav-item" data-panel="sitter"><span class="nav-icon">🏠</span><span>Sitter instructions</span></div>
+      <div class="nav-item" data-panel="insurance"><span class="nav-icon">📄</span><span>Insurance</span></div>
+      <div class="nav-item" data-panel="reminders"><span class="nav-icon">🔔</span><span>Reminders</span></div>
+    </div>
+
+    <div class="main">
+
+      <!-- DASHBOARD -->
+      <div class="panel active" id="panel-dashboard">
+        <div class="card" style="display:flex;align-items:center;gap:1.25rem;padding:1.25rem;margin-bottom:1rem;">
+          <div style="position:relative;flex-shrink:0;">
+            <div id="profile-pic-wrap" style="width:80px;height:80px;border-radius:50%;background:var(--green-light);border:2px solid var(--green-mid);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:36px;cursor:pointer;" onclick="document.getElementById('profile-upload').click()">
+              <span id="profile-placeholder">🐾</span>
+              <img id="profile-img" src="" alt="" style="display:none;width:100%;height:100%;object-fit:cover;"/>
+            </div>
+            <div style="position:absolute;bottom:0;right:0;width:22px;height:22px;background:var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid white;" onclick="document.getElementById('profile-upload').click()">
+              <span style="font-size:11px;color:white;line-height:1;">✎</span>
+            </div>
+            <input type="file" id="profile-upload" accept="image/*" style="display:none;" onchange="handleProfileUpload(event)"/>
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:2px;" id="prof-disp-name">Tofu</div>
+            <div style="font-size:14px;color:var(--text-muted);margin-bottom:6px;" id="prof-disp-meta"></div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <span class="badge badge-green" id="prof-badge-weight"></span>
+              <span class="badge badge-amber">Food trial — pork only</span>
+              <span class="badge badge-blue" id="prof-badge-gender"></span>
+            </div>
+          </div>
+          <div style="font-size:12px;text-align:right;flex-shrink:0;display:flex;flex-direction:column;gap:6px;">
+            <div style="cursor:pointer;color:var(--green);" onclick="document.getElementById('profile-upload').click()">📷 Upload photo</div>
+            <div style="cursor:pointer;color:var(--green);" onclick="toggleProfileEdit(true)">✎ Edit profile</div>
+          </div>
+        </div>
+
+        <div class="card" id="profile-edit-card" style="display:none;margin-top:-0.5rem;">
+          <div class="card-title">Edit profile</div>
+          <div class="grid-2" style="gap:10px;margin-bottom:12px;">
+            <div><label>Name</label><input type="text" id="prof-name"/></div>
+            <div><label>Breed</label><input type="text" id="prof-breed"/></div>
+            <div><label>Date of birth</label><input type="date" id="prof-dob"/></div>
+            <div><label>Gender</label><select id="prof-gender"><option value="Male">Male</option><option value="Female">Female</option></select></div>
+            <div><label>Weight (kg)</label><input type="number" id="prof-weight" step="0.1"/></div>
+            <div><label>Neutered?</label><select id="prof-neutered"><option value="">Unknown</option><option value="Yes">Yes</option><option value="No">No</option></select></div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary btn-sm" onclick="saveProfile()">Save</button>
+            <button class="btn btn-secondary btn-sm" onclick="toggleProfileEdit(false)">Cancel</button>
+          </div>
+        </div>
+
+        <div class="grid-3" style="margin-bottom:1rem;">
+          <div class="stat-card"><div class="stat-label">Last walk</div><div class="stat-value" id="dash-last-walk">—</div><div class="stat-sub" id="dash-last-walk-sub">No walks logged yet</div></div>
+          <div class="stat-card"><div class="stat-label">Current weight</div><div class="stat-value" id="dash-weight">—</div><div class="stat-sub">From profile</div></div>
+          <div class="stat-card"><div class="stat-label">Food trial</div><div class="stat-value" id="dash-trial-week">Ongoing</div><div class="stat-sub" id="dash-trial-sub">Pork protein only</div></div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title"><span>🔔</span> Upcoming reminders</div>
+            <div id="dash-reminders"><div style="color:var(--text-muted);font-size:14px;padding:0.5rem 0;">No reminders yet. Add some in the Reminders tab.</div></div>
+          </div>
+          <div class="card">
+            <div class="card-title"><span>📈</span> Latest food trial entry</div>
+            <div id="dash-trial-summary" style="font-size:14px;color:var(--text-muted);">No trial entries yet. Add your first in Diet &amp; weight.</div>
+            <div style="margin-top:12px;"><button class="btn btn-secondary btn-sm" onclick="showPanel('diet')">Go to food trial log</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DIET & WEIGHT -->
+      <div class="panel" id="panel-diet">
+        <div class="section-heading">Diet & weight calculator</div>
+        <div class="section-subtext">Daily calorie needs based on Tofu's profile, plus a log of the ongoing food trial.</div>
+        <div class="ai-area"><div class="ai-avatar">🐾</div><div class="ai-text">Fill in the details below to get a personalised feeding plan, then use the food trial log to track observations over time.</div></div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">🐕 Dog profile</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div><label>Breed</label><input type="text" id="d-breed"/></div>
+              <div><label>Age (years)</label><input type="number" id="d-age" min="0" max="20" step="0.25"/></div>
+              <div><label>Weight (kg)</label><input type="number" id="d-weight" step="0.1"/></div>
+              <div><label>Activity level</label>
+                <select id="d-activity"><option value="low">Low – mostly indoor</option><option value="moderate" selected>Moderate – 1–2 walks/day</option><option value="high">High – very active</option></select>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">🥗 Food trial settings</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div><label>On a food trial?</label><select id="d-trial"><option value="yes" selected>Yes</option><option value="no">No</option></select></div>
+              <div><label>Trial food / diet type</label><input type="text" id="d-trialfood" value="Pork-based diet — single novel protein"/></div>
+              <div><label>Trial week</label><input type="number" id="d-trialweek" placeholder="e.g. 3" min="1" max="52"/></div>
+              <div><label>Known allergies / sensitivities</label><input type="text" id="d-allergies" value="Suspected protein sensitivity — all non-pork proteins restricted"/></div>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="calcDiet()">Calculate feeding plan ✦</button>
+        <div id="diet-result" style="margin-top:1rem;display:none;"><div class="card"><div class="card-title">📊 Feeding plan</div><div id="diet-result-content" style="font-size:14px;line-height:1.7;"></div></div></div>
+        <div style="margin-top:1.5rem;">
+          <div class="section-heading" style="font-size:17px;margin-bottom:4px;">🗒️ Food trial log</div>
+          <div class="section-subtext" style="margin-bottom:1rem;">Record weekly observations to share with your vet.</div>
+          <div class="card" style="margin-bottom:1rem;">
+            <div class="card-title">Add entry</div>
+            <div class="grid-2" style="gap:10px;margin-bottom:12px;">
+              <div><label>Date</label><input type="date" id="trial-date"/></div>
+              <div><label>Week number</label><input type="number" id="trial-week-num" placeholder="e.g. 3" min="1"/></div>
+              <div><label>Current food / brand</label><input type="text" id="trial-food-brand" placeholder="e.g. Ziwi Peak Pork"/></div>
+              <div><label>Overall symptom trend</label>
+                <select id="trial-trend"><option value="">Select...</option><option>Improving</option><option>Same</option><option>Worse</option><option>Mixed</option></select>
+              </div>
+              <div style="grid-column:span 2;"><label>Observations (skin, coat, digestion, energy, behaviour)</label><textarea id="trial-obs" placeholder="e.g. Less scratching this week, stool firmer, coat looks shinier."></textarea></div>
+              <div><label>Any dietary slip-ups?</label><input type="text" id="trial-slip" placeholder="e.g. accidentally ate a treat"/></div>
+              <div><label>Weight at check-in (kg)</label><input type="number" id="trial-weight" step="0.1" placeholder="e.g. 9.5"/></div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="addTrialEntry()">Save entry</button>
+          </div>
+          <div class="card" style="padding:0;overflow:hidden;"><table><thead><tr><th>Date</th><th>Week</th><th>Food</th><th>Trend</th><th>Weight</th><th>Notes</th><th></th></tr></thead><tbody id="trial-log-table"></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- HEALTH RECORDS -->
+      <div class="panel" id="panel-records">
+        <div class="section-heading">Health records</div>
+        <div class="section-subtext">Vet visits, test results, prescriptions, and food trial notes.</div>
+        <div class="pill-group">
+          <div class="pill active" onclick="setRecordFilter('All')">All</div>
+          <div class="pill" onclick="setRecordFilter('Vet visit')">Vet visits</div>
+          <div class="pill" onclick="setRecordFilter('Prescription')">Prescriptions</div>
+          <div class="pill" onclick="setRecordFilter('Test result')">Test results</div>
+          <div class="pill" onclick="setRecordFilter('Vaccination')">Vaccinations</div>
+          <div class="pill" onclick="setRecordFilter('Food trial')">Food trial</div>
+        </div>
+        <div class="card" id="add-record-form" style="display:none;margin-bottom:1rem;">
+          <div class="card-title">Add record</div>
+          <div class="grid-2" style="gap:10px;margin-bottom:12px;">
+            <div><label>Date</label><input type="date" id="rec-date"/></div>
+            <div><label>Type</label><select id="rec-type"><option>Vet visit</option><option>Prescription</option><option>Test result</option><option>Vaccination</option><option>Food trial</option><option>Other</option></select></div>
+            <div style="grid-column:span 2;"><label>Title</label><input type="text" id="rec-title" placeholder="e.g. Annual vaccination — DHPPiL + Rabies"/></div>
+            <div style="grid-column:span 2;"><label>Subtitle / clinic (optional)</label><input type="text" id="rec-meta" placeholder="e.g. Dr Lim, Paws & Claws Clinic"/></div>
+            <div style="grid-column:span 2;"><label>Notes (optional)</label><textarea id="rec-notes-input" placeholder="e.g. All values within normal range. Review in 8 weeks."></textarea></div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary btn-sm" onclick="saveRecord()">Save record</button>
+            <button class="btn btn-secondary btn-sm" onclick="toggleAddRecord(false)">Cancel</button>
+          </div>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden;"><ul class="timeline" style="padding:1.25rem;" id="records-timeline"><div style="text-align:center;color:var(--text-muted);padding:2rem;">No health records yet. Add your first record below.</div></ul></div>
+        <button class="btn btn-primary" onclick="toggleAddRecord(true)">+ Add record</button>
+      </div>
+
+      <!-- INGREDIENT CHECKER -->
+      <div class="panel" id="panel-ingredients">
+        <div class="section-heading">Ingredient checker</div>
+        <div class="section-subtext">Find out if a food or ingredient is safe for Tofu — especially important during the food trial.</div>
+        <div class="card">
+          <div style="display:flex;gap:8px;align-items:flex-end;">
+            <div style="flex:1;"><label>Enter ingredient or food</label><input type="text" id="ing-input" placeholder="e.g. blueberries, xylitol, salmon, oats..."/></div>
+            <button class="btn btn-primary" onclick="checkIngredient()">Check ✦</button>
+          </div>
+          <div class="ingredient-result" id="ing-result"><div id="ing-result-content"></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">⚠️ Always avoid — Tofu's trial restrictions</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:13px;">
+            <span class="badge badge-red">Chicken</span><span class="badge badge-red">Beef</span><span class="badge badge-red">Lamb</span><span class="badge badge-red">Duck</span><span class="badge badge-red">Fish</span><span class="badge badge-red">Venison</span><span class="badge badge-red">Any non-pork protein</span><span class="badge badge-red">Commercial treats</span><span class="badge badge-red">Table scraps</span><span class="badge badge-red">Xylitol</span><span class="badge badge-red">Grapes / raisins</span><span class="badge badge-red">Chocolate</span><span class="badge badge-red">Onion / garlic</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RECIPES -->
+      <div class="panel" id="panel-recipes">
+        <div class="section-heading">Recipe generator</div>
+        <div class="section-subtext">Generate safe, vet-aligned homemade food or treat recipes for Tofu.</div>
+        <div class="card">
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div><label>What would you like?</label>
+              <div class="pill-group" style="margin-bottom:0;margin-top:6px;">
+                <div class="pill active" id="recipe-type-meal" onclick="setRecipeType('meal')">Meal</div>
+                <div class="pill" id="recipe-type-treat" onclick="setRecipeType('treat')">Treat</div>
+                <div class="pill" id="recipe-type-topper" onclick="setRecipeType('topper')">Food topper</div>
+              </div>
+            </div>
+            <div><label>Special requirements</label><input type="text" id="recipe-req" value="Food trial – pork protein only, no chicken/beef/lamb/fish/duck/dairy"/></div>
+            <div><label>Anything else to keep in mind?</label><textarea id="recipe-notes" placeholder="e.g. easy to make, uses pantry staples, high moisture..."></textarea></div>
+            <div><button class="btn btn-primary" onclick="generateRecipe()">Generate recipe ✦</button></div>
+          </div>
+        </div>
+        <div id="recipe-result" style="display:none;"><div class="card"><div class="card-title">👨‍🍳 Recipe</div><div id="recipe-result-content" style="font-size:14px;line-height:1.8;"></div></div></div>
+      </div>
+
+      <!-- WALK LOG -->
+      <div class="panel" id="panel-walks">
+        <div class="section-heading">Walk log</div>
+        <div class="section-subtext">Track Tofu's daily activity and walks.</div>
+        <div class="grid-3" style="margin-bottom:1rem;">
+          <div class="stat-card"><div class="stat-label">This week</div><div class="stat-value" id="walk-stat-week-km">—</div><div class="stat-sub" id="walk-stat-week-sub">No walks yet</div></div>
+          <div class="stat-card"><div class="stat-label">Today</div><div class="stat-value" id="walk-stat-today-km">—</div><div class="stat-sub" id="walk-stat-today-sub">No walks yet</div></div>
+          <div class="stat-card"><div class="stat-label">Streak</div><div class="stat-value" id="walk-stat-streak">—</div><div class="stat-sub" id="walk-stat-streak-sub">Log a walk to start</div></div>
+        </div>
+        <div class="card" style="margin-bottom:1rem;">
+          <div class="card-title">Log a walk</div>
+          <div class="grid-2" style="gap:10px;margin-bottom:12px;">
+            <div><label>Date & time</label><input type="datetime-local" id="walk-time"/></div>
+            <div><label>Duration (minutes)</label><input type="number" id="walk-dur" placeholder="e.g. 30"/></div>
+            <div><label>Distance (km)</label><input type="number" id="walk-dist" placeholder="e.g. 1.8" step="0.1"/></div>
+            <div><label>Notes</label><input type="text" id="walk-notes" placeholder="e.g. park visit, met other dogs"/></div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="logWalk()">Log walk</button>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden;"><table><thead><tr><th>Date & time</th><th>Duration</th><th>Distance</th><th>Notes</th><th></th></tr></thead><tbody id="walk-table"></tbody></table></div>
+      </div>
+
+      <!-- SITTER INSTRUCTIONS -->
+      <div class="panel" id="panel-sitter">
+        <div class="section-heading">Sitter & boarding instructions</div>
+        <div class="section-subtext">Generate a complete care sheet to hand to a sitter or boarding facility.</div>
+        <div class="card">
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div class="grid-2">
+              <div><label>Sitter name</label><input type="text" id="sit-name" placeholder="e.g. Sarah, Happy Paws Boarding"/></div>
+              <div><label>Stay duration</label><input type="text" id="sit-dur" placeholder="e.g. 24–27 Jul (3 nights)"/></div>
+            </div>
+            <div><label>Special notes for sitter</label><textarea id="sit-notes">Tofu is on a strict pork-only food trial — absolutely NO treats, table scraps, or any food besides his pork-based food. He can be wary of strangers at first but warms up quickly. Call us if he scratches excessively or seems unwell.</textarea></div>
+            <button class="btn btn-primary" onclick="generateSitterInstructions()">Generate care sheet ✦</button>
+          </div>
+        </div>
+        <div id="sitter-result" style="display:none;">
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <div class="card-title" style="margin-bottom:0;">📋 Care sheet</div>
+              <button class="btn btn-secondary btn-sm" onclick="window.print()">Print / save as PDF</button>
+            </div>
+            <div id="sitter-result-content" style="font-size:14px;line-height:1.8;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- INSURANCE -->
+      <div class="panel" id="panel-insurance">
+        <div class="section-heading">Insurance</div>
+        <div class="section-subtext">Track Tofu's insurance policy details and log claims made.</div>
+        <div class="card" id="policy-view">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+            <div class="card-title" style="margin-bottom:0;">🛡️ Policy details</div>
+            <button class="btn btn-secondary btn-sm" onclick="togglePolicyEdit(true)">Edit</button>
+          </div>
+          <div id="policy-display">
+            <div class="grid-2" style="gap:8px;font-size:14px;">
+              <div><span style="color:var(--text-muted);font-size:12px;display:block;">Insurer</span><span id="disp-insurer">—</span></div>
+              <div><span style="color:var(--text-muted);font-size:12px;display:block;">Policy number</span><span id="disp-polnum">—</span></div>
+              <div><span style="color:var(--text-muted);font-size:12px;display:block;">Policy type</span><span id="disp-poltype">—</span></div>
+              <div><span style="color:var(--text-muted);font-size:12px;display:block;">Annual limit</span><span id="disp-limit">—</span></div>
+              <div><span style="color:var(--text-muted);font-size:12px;display:block;">Deductible / excess</span><span id="disp-excess">—</span></div>
+              <div><span style="color:var(--text-muted);font-size:12px;display:block;">Renewal date</span><span id="disp-renewal">—</span></div>
+            </div>
+            <div style="margin-top:10px;"><span style="color:var(--text-muted);font-size:12px;display:block;margin-bottom:4px;">Covered entitlements</span><div id="disp-entitlements" style="font-size:14px;color:var(--text-muted);">No policy entered yet. Click Edit to add your policy details.</div></div>
+            <div style="margin-top:10px;"><span style="color:var(--text-muted);font-size:12px;display:block;margin-bottom:4px;">Exclusions / notes</span><div id="disp-exclusions" style="font-size:14px;color:var(--text-muted);">—</div></div>
+          </div>
+          <div id="policy-edit" style="display:none;">
+            <div class="grid-2" style="gap:10px;margin-bottom:12px;">
+              <div><label>Insurer name</label><input type="text" id="pol-insurer" placeholder="e.g. NTUC Income, FWD, Etiqa"/></div>
+              <div><label>Policy number</label><input type="text" id="pol-polnum" placeholder="e.g. PET-20240407-001"/></div>
+              <div><label>Policy type</label><select id="pol-poltype"><option value="">Select...</option><option>Accident only</option><option>Accident & illness</option><option>Comprehensive</option><option>Lifetime cover</option></select></div>
+              <div><label>Annual limit ($)</label><input type="text" id="pol-limit" placeholder="e.g. $5,000"/></div>
+              <div><label>Deductible / excess ($)</label><input type="text" id="pol-excess" placeholder="e.g. $100 per claim"/></div>
+              <div><label>Renewal date</label><input type="date" id="pol-renewal"/></div>
+              <div style="grid-column:span 2;"><label>Covered entitlements</label><textarea id="pol-entitlements" placeholder="e.g. Vet consultations up to $500/visit, diagnostics up to $1,000/year..."></textarea></div>
+              <div style="grid-column:span 2;"><label>Exclusions & notes</label><textarea id="pol-exclusions" placeholder="e.g. Pre-existing conditions excluded, dental not covered..."></textarea></div>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-primary btn-sm" onclick="savePolicy()">Save policy</button>
+              <button class="btn btn-secondary btn-sm" onclick="togglePolicyEdit(false)">Cancel</button>
+            </div>
+          </div>
+        </div>
+        <div class="grid-2" style="margin-bottom:1rem;">
+          <div class="stat-card"><div class="stat-label">Total claimed (this year)</div><div class="stat-value" id="ins-total-claimed">$0</div><div class="stat-sub" id="ins-claims-count">0 claims logged</div></div>
+          <div class="stat-card"><div class="stat-label">Reimbursed</div><div class="stat-value" id="ins-total-reimbursed">$0</div><div class="stat-sub" id="ins-pending-text">All settled</div></div>
+        </div>
+        <div class="card" style="margin-bottom:1rem;">
+          <div class="card-title">Log a claim</div>
+          <div class="grid-2" style="gap:10px;margin-bottom:12px;">
+            <div><label>Date of treatment</label><input type="date" id="cl-date"/></div>
+            <div><label>Claim type</label><select id="cl-type"><option>Vet consultation</option><option>Diagnostics / tests</option><option>Medication</option><option>Hospitalisation</option><option>Surgery</option><option>Specialist referral</option><option>Other</option></select></div>
+            <div><label>Amount claimed ($)</label><input type="number" id="cl-amount" placeholder="e.g. 180" step="0.01"/></div>
+            <div><label>Amount reimbursed ($)</label><input type="number" id="cl-reimbursed" placeholder="Leave blank if pending" step="0.01"/></div>
+            <div style="grid-column:span 2;"><label>Description</label><input type="text" id="cl-desc" placeholder="e.g. Vet consultation + allergy workup"/></div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="logClaim()">Add claim</button>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden;"><table><thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Claimed</th><th>Reimbursed</th><th>Status</th><th></th></tr></thead><tbody id="claims-table"></tbody></table></div>
+      </div>
+
+      <!-- REMINDERS -->
+      <div class="panel" id="panel-reminders">
+        <div class="section-heading">Reminders & registrations</div>
+        <div class="section-subtext">Vaccinations, treatments, microchip, license, and vet appointments.</div>
+        <div class="card" style="margin-bottom:1rem;">
+          <div class="card-title">Add reminder</div>
+          <div class="grid-2" style="gap:10px;margin-bottom:12px;">
+            <div><label>Type</label><select id="rem-type"><option>Vaccination</option><option>Flea / tick treatment</option><option>Vet appointment</option><option>License renewal</option><option>Microchip update</option><option>Food trial review</option><option>Medication refill</option><option>Other</option></select></div>
+            <div><label>Due date</label><input type="date" id="rem-date"/></div>
+            <div style="grid-column:span 2;"><label>Notes</label><input type="text" id="rem-notes" placeholder="e.g. Dr Lim at Paws & Claws, Bordetella vaccine"/></div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="addReminder()">Add reminder</button>
+        </div>
+        <div class="card"><div class="card-title">📅 Upcoming</div><div id="reminders-list"><div style="text-align:center;color:var(--text-muted);padding:1.5rem 0;">No reminders yet. Add one above.</div></div></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- SAVE STATUS -->
+<div class="save-status" id="save-status"></div>
+
+<script>
+// ===== AUTH =====
+document.getElementById('auth-password').addEventListener('keydown', e => { if(e.key==='Enter') signIn(); });
+
+async function signIn() {
+  const pw = document.getElementById('auth-password').value;
+  if(!pw) return;
+  const btn = document.getElementById('auth-btn');
+  const errEl = document.getElementById('auth-error');
+  btn.disabled = true; btn.textContent = 'Signing in...';
+  errEl.style.display = 'none';
+  try {
+    const res = await fetch('/api/auth', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password:pw}) });
+    const data = await res.json();
+    if(data.success) {
+      localStorage.setItem('pp_session', JSON.stringify({ expires: Date.now() + 30*24*60*60*1000 }));
+      showLoadingScreen();
+      await loadAll();
+      showApp();
+    } else {
+      errEl.textContent = 'Incorrect password. Please try again.';
+      errEl.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Sign in';
+    }
+  } catch(e) {
+    errEl.textContent = 'Connection error. Make sure the app is deployed on Vercel.';
+    errEl.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Sign in';
+  }
+}
+
+function signOut() {
+  localStorage.removeItem('pp_session');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('auth-password').value = '';
+  document.getElementById('auth-btn').disabled = false;
+  document.getElementById('auth-btn').textContent = 'Sign in';
+}
+
+function showLoadingScreen(msg) {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('loading-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  if(msg) document.getElementById('loading-msg').textContent = msg;
+}
+
+function showApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  renderAll();
+}
+
+// ===== DATA =====
+const DEFAULT_PROFILE = { name:'Tofu', breed:'West Highland White Terrier', dob:'2024-04-07', gender:'Male', weight:'9.5', neutered:'' };
+let profile={...DEFAULT_PROFILE}, walks=[], trialLog=[], records=[], reminders=[], claims=[], policy={};
+
+async function apiGet(k) {
+  const res = await fetch('/api/db?k=' + encodeURIComponent(k));
+  if(!res.ok) throw new Error('Failed to load data');
+  const data = await res.json();
+  return data.value;
+}
+
+async function loadAll() {
+  const state = await apiGet('app_state');
+  profile   = state?.profile   || {...DEFAULT_PROFILE};
+  walks     = state?.walks     || [];
+  trialLog  = state?.trial     || [];
+  records   = state?.records   || [];
+  reminders = state?.reminders || [];
+  claims    = state?.claims    || [];
+  policy    = state?.policy    || {};
+}
+
+let saveTimer = null;
+function saveAll() {
+  if(saveTimer) clearTimeout(saveTimer);
+  setSaveStatus('saving');
+  saveTimer = setTimeout(async () => {
+    try {
+      const res = await fetch('/api/db', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ k:'app_state', value:{ profile, walks, trial:trialLog, records, reminders, claims, policy } }) });
+      if(!res.ok) throw new Error();
+      setSaveStatus('saved');
+    } catch(e) {
+      setSaveStatus('error');
+    }
+  }, 400);
+}
+
+let statusTimer = null;
+function setSaveStatus(s) {
+  const el = document.getElementById('save-status');
+  if(statusTimer) clearTimeout(statusTimer);
+  el.className = 'save-status visible ' + s;
+  el.textContent = s==='saving' ? '💾 Saving...' : s==='saved' ? '✓ Synced' : '⚠ Not saved — check connection';
+  if(s==='saved') statusTimer = setTimeout(() => el.className='save-status', 2000);
+}
+
+// ===== HELPERS =====
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).substr(2,4); }
+function fmtDate(s){ if(!s) return '—'; return new Date(s+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); }
+function fmtDT(s){ if(!s) return '—'; return new Date(s).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}); }
+function calcAge(dob){
+  if(!dob) return '';
+  const b=new Date(dob+'T00:00:00'),n=new Date();
+  const m=(n.getFullYear()-b.getFullYear())*12+(n.getMonth()-b.getMonth());
+  const y=Math.floor(m/12),mo=m%12;
+  return y>0?`${y} year${y>1?'s':''}${mo>0?' '+mo+' month'+(mo>1?'s':''):''}`:mo+' month'+(mo!==1?'s':'');
+}
+function emptyRow(msg,cols){ return `<tr><td colspan="${cols}" style="text-align:center;color:var(--text-muted);padding:2rem 1rem;">${msg}</td></tr>`; }
+function trendBadge(t){ return ({Improving:'<span class="badge badge-green">Improving</span>',Same:'<span class="badge" style="background:var(--gray-2);color:var(--gray-5)">Same</span>',Worse:'<span class="badge badge-red">Worse</span>',Mixed:'<span class="badge badge-amber">Mixed</span>'})[t]||'—'; }
+const REC_ICONS={'Vet visit':'🩺','Prescription':'💊','Test result':'🔬','Vaccination':'💉','Food trial':'📝','Other':'📄'};
+const REC_BADGE={'Vet visit':'badge-blue','Prescription':'badge-purple','Test result':'badge-amber','Vaccination':'badge-green','Food trial':'badge-amber','Other':'badge-blue'};
+const REM_ICONS={'Vaccination':'💉','Flea / tick treatment':'🐛','Vet appointment':'🩺','License renewal':'🔖','Microchip update':'📡','Food trial review':'📋','Medication refill':'💊','Other':'🔔'};
+
+// ===== RENDER ALL =====
+function renderAll(){
+  renderProfile(); renderWalks(); renderTrialLog(); renderRecords();
+  renderReminders(); renderClaims(); renderPolicy();
+  const photo=localStorage.getItem('pp_photo'); if(photo) applyPhoto(photo);
+  const n=new Date(); n.setMinutes(n.getMinutes()-n.getTimezoneOffset());
+  document.getElementById('walk-time').value=n.toISOString().slice(0,16);
+  document.getElementById('trial-date').valueAsDate=new Date();
+  document.getElementById('cl-date').valueAsDate=new Date();
+  document.getElementById('rec-date').valueAsDate=new Date();
+}
+
+// ===== PROFILE =====
+function renderProfile(){
+  const age=calcAge(profile.dob), dob=profile.dob?fmtDate(profile.dob):'';
+  document.getElementById('prof-disp-name').textContent=profile.name;
+  document.getElementById('prof-disp-meta').innerHTML=`${profile.breed}${dob?' &nbsp;·&nbsp; Born '+dob:''}${age?' &nbsp;·&nbsp; '+age:''}`;
+  document.getElementById('prof-badge-weight').textContent=profile.weight?profile.weight+' kg':'';
+  document.getElementById('prof-badge-gender').textContent=profile.gender+(profile.neutered==='Yes'?' · Neutered':'');
+  document.getElementById('header-dog-name').textContent=profile.name;
+  document.getElementById('dash-weight').textContent=profile.weight?profile.weight+' kg':'—';
+  document.getElementById('d-breed').value=profile.breed||'';
+  document.getElementById('d-weight').value=profile.weight||'';
+  if(profile.dob){const b=new Date(profile.dob+'T00:00:00'),n=new Date();document.getElementById('d-age').value=(((n.getFullYear()-b.getFullYear())*12+(n.getMonth()-b.getMonth()))/12).toFixed(1);}
+}
+function toggleProfileEdit(show){
+  document.getElementById('profile-edit-card').style.display=show?'block':'none';
+  if(show){
+    document.getElementById('prof-name').value=profile.name||'';
+    document.getElementById('prof-breed').value=profile.breed||'';
+    document.getElementById('prof-dob').value=profile.dob||'';
+    document.getElementById('prof-gender').value=profile.gender||'Male';
+    document.getElementById('prof-weight').value=profile.weight||'';
+    document.getElementById('prof-neutered').value=profile.neutered||'';
+  }
+}
+function saveProfile(){
+  profile={name:document.getElementById('prof-name').value||'Tofu',breed:document.getElementById('prof-breed').value,dob:document.getElementById('prof-dob').value,gender:document.getElementById('prof-gender').value,weight:document.getElementById('prof-weight').value,neutered:document.getElementById('prof-neutered').value};
+  saveAll(); renderProfile(); toggleProfileEdit(false);
+}
+
+// ===== PHOTO =====
+function handleProfileUpload(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    const img=new Image();
+    img.onload=function(){
+      const c=document.createElement('canvas'),MAX=300,r=Math.min(MAX/img.width,MAX/img.height);
+      c.width=img.width*r; c.height=img.height*r;
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      const src=c.toDataURL('image/jpeg',0.8);
+      applyPhoto(src);
+      try{localStorage.setItem('pp_photo',src);}catch(e){console.warn('Photo too large for storage');}
+    };
+    img.src=ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function applyPhoto(src){
+  document.getElementById('profile-img').src=src;
+  document.getElementById('profile-img').style.display='block';
+  document.getElementById('profile-placeholder').style.display='none';
+  document.getElementById('header-avatar-img').src=src;
+  document.getElementById('header-avatar-img').style.display='block';
+  document.getElementById('header-avatar-emoji').style.display='none';
+}
+
+// ===== WALKS =====
+function renderWalks(){
+  const tbody=document.getElementById('walk-table');
+  if(!walks.length){tbody.innerHTML=emptyRow('No walks logged yet. Add your first walk above.',5);updateWalkStats();return;}
+  tbody.innerHTML=[...walks].sort((a,b)=>new Date(b.datetime)-new Date(a.datetime)).map(w=>`<tr><td>${fmtDT(w.datetime)}</td><td>${w.duration} min</td><td>${w.distance?w.distance+' km':'—'}</td><td style="font-size:13px;color:var(--text-muted)">${w.notes||'—'}</td><td><button class="btn-del" onclick="deleteWalk('${w.id}')">✕</button></td></tr>`).join('');
+  updateWalkStats();
+}
+function updateWalkStats(){
+  const now=new Date(),tod=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const wkStart=new Date(tod); wkStart.setDate(tod.getDate()-tod.getDay());
+  const todW=walks.filter(w=>new Date(w.datetime)>=tod);
+  const wkW=walks.filter(w=>new Date(w.datetime)>=wkStart);
+  const todKm=todW.reduce((s,w)=>s+(parseFloat(w.distance)||0),0);
+  const wkKm=wkW.reduce((s,w)=>s+(parseFloat(w.distance)||0),0);
+  const days=new Set(walks.map(w=>new Date(w.datetime).toDateString()));
+  let streak=0; const d=new Date(tod); while(days.has(d.toDateString())){streak++;d.setDate(d.getDate()-1);}
+  const el=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  el('walk-stat-week-km',wkKm>0?wkKm.toFixed(1)+' km':'—');
+  el('walk-stat-week-sub',wkW.length+' walk'+(wkW.length!==1?'s':'')+' logged');
+  el('walk-stat-today-km',todKm>0?todKm.toFixed(1)+' km':'—');
+  el('walk-stat-today-sub',todW.length?todW.length+' walk'+(todW.length!==1?'s':'')+' · '+todW.reduce((s,w)=>s+(parseInt(w.duration)||0),0)+' min':'No walks yet');
+  el('walk-stat-streak',streak>0?streak+' day'+(streak!==1?'s':''):'—');
+  el('walk-stat-streak-sub',streak>1?'Keep it up! 🔥':streak===1?'Good start!':'Log a walk to start your streak');
+  if(walks.length){const last=[...walks].sort((a,b)=>new Date(b.datetime)-new Date(a.datetime))[0];const mins=Math.round((now-new Date(last.datetime))/60000);el('dash-last-walk',mins<60?mins+'m ago':Math.round(mins/60)+'h ago');el('dash-last-walk-sub',[last.distance?last.distance+' km':'',last.duration?last.duration+' min':''].filter(Boolean).join(' · ')||'—');}
+  else{el('dash-last-walk','—');el('dash-last-walk-sub','No walks logged yet');}
+}
+function logWalk(){
+  const dur=document.getElementById('walk-dur').value; if(!dur) return;
+  walks.unshift({id:uid(),datetime:document.getElementById('walk-time').value||new Date().toISOString(),duration:dur,distance:document.getElementById('walk-dist').value,notes:document.getElementById('walk-notes').value});
+  saveAll(); renderWalks();
+  document.getElementById('walk-dur').value=''; document.getElementById('walk-dist').value=''; document.getElementById('walk-notes').value='';
+  const n=new Date(); n.setMinutes(n.getMinutes()-n.getTimezoneOffset());
+  document.getElementById('walk-time').value=n.toISOString().slice(0,16);
+}
+function deleteWalk(id){walks=walks.filter(w=>w.id!==id);saveAll();renderWalks();}
+
+// ===== TRIAL LOG =====
+function renderTrialLog(){
+  const tbody=document.getElementById('trial-log-table');
+  if(!trialLog.length){tbody.innerHTML=emptyRow('No entries yet. Log your first food trial observation above.',7);updateTrialDash();return;}
+  tbody.innerHTML=[...trialLog].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(e=>`<tr><td>${fmtDate(e.date)}</td><td>${e.week?'Week '+e.week:'—'}</td><td style="font-size:13px">${e.food||'—'}</td><td>${trendBadge(e.trend)}</td><td>${e.weight?e.weight+' kg':'—'}</td><td style="font-size:13px;color:var(--text-muted)">${e.obs}${e.slip?` <span style="color:var(--amber)">⚠️ ${e.slip}</span>`:''}</td><td><button class="btn-del" onclick="deleteTrialEntry('${e.id}')">✕</button></td></tr>`).join('');
+  updateTrialDash();
+}
+function updateTrialDash(){
+  if(!trialLog.length) return;
+  const latest=[...trialLog].sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
+  const el=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  el('dash-trial-week',latest.week?'Week '+latest.week:'Ongoing');
+  el('dash-trial-sub',latest.trend||'Pork protein only');
+  const sumEl=document.getElementById('dash-trial-summary');
+  if(sumEl) sumEl.innerHTML=`<strong>${fmtDate(latest.date)}${latest.week?' · Week '+latest.week:''}</strong><br>${latest.food?'<span style="color:var(--text-muted);font-size:13px">'+latest.food+'</span><br>':''}${trendBadge(latest.trend)} <span style="font-size:13px;color:var(--text-muted)">${latest.obs}</span>`;
+}
+function addTrialEntry(){
+  const date=document.getElementById('trial-date').value,obs=document.getElementById('trial-obs').value;
+  if(!date||!obs){alert('Please fill in at least the date and observations.');return;}
+  trialLog.unshift({id:uid(),date,week:document.getElementById('trial-week-num').value,food:document.getElementById('trial-food-brand').value,trend:document.getElementById('trial-trend').value,obs,slip:document.getElementById('trial-slip').value,weight:document.getElementById('trial-weight').value});
+  saveAll(); renderTrialLog();
+  ['trial-obs','trial-slip','trial-weight','trial-week-num','trial-food-brand'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('trial-trend').value='';
+  document.getElementById('trial-date').valueAsDate=new Date();
+}
+function deleteTrialEntry(id){trialLog=trialLog.filter(e=>e.id!==id);saveAll();renderTrialLog();}
+
+// ===== HEALTH RECORDS =====
+let currentRecordFilter='All';
+function renderRecords(filter){
+  const f=filter||currentRecordFilter;
+  const filtered=f==='All'?records:records.filter(r=>r.type===f);
+  const el=document.getElementById('records-timeline');
+  if(!filtered.length){el.innerHTML=`<div style="text-align:center;color:var(--text-muted);padding:2rem;">${f==='All'?'No health records yet. Add your first record below.':'No '+f+' records found.'}</div>`;return;}
+  el.innerHTML=[...filtered].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(r=>`<li><div class="timeline-dot">${REC_ICONS[r.type]||'📄'}</div><div class="timeline-body"><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div><div class="timeline-title">${r.title}</div><div class="timeline-meta">${fmtDate(r.date)}${r.meta?' · '+r.meta:''}</div></div><div style="display:flex;align-items:center;gap:6px;flex-shrink:0;"><span class="badge ${REC_BADGE[r.type]||'badge-blue'}">${r.type}</span><button class="btn-del" onclick="deleteRecord('${r.id}')">✕</button></div></div>${r.notes?`<div style="font-size:13px;color:var(--gray-5);margin-top:6px;background:var(--gray-1);padding:8px 10px;border-radius:6px;">${r.notes}</div>`:''}</div></li>`).join('');
+}
+function setRecordFilter(f){currentRecordFilter=f;document.querySelectorAll('#panel-records .pill').forEach(p=>p.classList.toggle('active',p.textContent===f));renderRecords(f);}
+function toggleAddRecord(show){document.getElementById('add-record-form').style.display=show?'block':'none';}
+function saveRecord(){
+  const date=document.getElementById('rec-date').value,title=document.getElementById('rec-title').value;
+  if(!date||!title){alert('Please fill in at least the date and title.');return;}
+  records.unshift({id:uid(),date,type:document.getElementById('rec-type').value,title,meta:document.getElementById('rec-meta').value,notes:document.getElementById('rec-notes-input').value});
+  saveAll(); renderRecords();
+  ['rec-title','rec-meta','rec-notes-input'].forEach(id=>document.getElementById(id).value='');
+  toggleAddRecord(false);
+}
+function deleteRecord(id){records=records.filter(r=>r.id!==id);saveAll();renderRecords();}
+
+// ===== REMINDERS =====
+function renderReminders(){
+  const list=document.getElementById('reminders-list'),now=new Date();
+  if(!reminders.length){list.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:1.5rem 0;">No reminders yet. Add one above.</div>';renderDashReminders();return;}
+  const sorted=[...reminders].sort((a,b)=>new Date(a.date)-new Date(b.date));
+  list.innerHTML=sorted.map(r=>{
+    const days=Math.ceil((new Date(r.date+'T00:00:00')-now)/864e5);
+    const bc=days<0?'badge-red':days<=7?'badge-amber':days<=30?'badge-blue':'badge-green';
+    const dt=days<0?Math.abs(days)+' days overdue':days===0?'Today':days+' days';
+    const bg=days<0?'var(--red-light)':days<=7?'var(--amber-light)':'var(--green-light)';
+    return `<div class="reminder-item"><div class="reminder-icon" style="background:${bg};">${REM_ICONS[r.type]||'🔔'}</div><div class="reminder-body"><div class="reminder-title">${r.type}</div><div class="reminder-date">${fmtDate(r.date)}${r.notes?' · '+r.notes:''}</div></div><span class="badge ${bc}">${dt}</span><button class="btn-del" onclick="deleteReminder('${r.id}')">✕</button></div>`;
+  }).join('');
+  renderDashReminders();
+}
+function renderDashReminders(){
+  const el=document.getElementById('dash-reminders'); if(!el) return;
+  const now=new Date();
+  const upcoming=[...reminders].sort((a,b)=>new Date(a.date)-new Date(b.date)).filter(r=>Math.ceil((new Date(r.date+'T00:00:00')-now)/864e5)>=-1).slice(0,3);
+  if(!upcoming.length){el.innerHTML='<div style="color:var(--text-muted);font-size:14px;padding:0.5rem 0;">No upcoming reminders. Add some in the Reminders tab.</div>';return;}
+  el.innerHTML=upcoming.map(r=>{
+    const days=Math.ceil((new Date(r.date+'T00:00:00')-now)/864e5);
+    const bc=days<0?'badge-red':days<=7?'badge-amber':'badge-green';
+    const dt=days<0?'Overdue':days===0?'Today':days+' days';
+    const bg=days<0?'var(--red-light)':days<=7?'var(--amber-light)':'var(--green-light)';
+    return `<div class="reminder-item"><div class="reminder-icon" style="background:${bg};">${REM_ICONS[r.type]||'🔔'}</div><div class="reminder-body"><div class="reminder-title">${r.type}</div><div class="reminder-date">${fmtDate(r.date)}${r.notes?' · '+r.notes:''}</div></div><span class="badge ${bc}">${dt}</span></div>`;
+  }).join('');
+}
+function addReminder(){
+  const date=document.getElementById('rem-date').value; if(!date) return;
+  reminders.push({id:uid(),type:document.getElementById('rem-type').value,date,notes:document.getElementById('rem-notes').value});
+  saveAll(); renderReminders();
+  document.getElementById('rem-date').value=''; document.getElementById('rem-notes').value='';
+}
+function deleteReminder(id){reminders=reminders.filter(r=>r.id!==id);saveAll();renderReminders();}
+
+// ===== INSURANCE =====
+function renderPolicy(){
+  document.getElementById('disp-insurer').textContent=policy.insurer||'—';
+  document.getElementById('disp-polnum').textContent=policy.polnum||'—';
+  document.getElementById('disp-poltype').textContent=policy.poltype||'—';
+  document.getElementById('disp-limit').textContent=policy.limit||'—';
+  document.getElementById('disp-excess').textContent=policy.excess||'—';
+  document.getElementById('disp-renewal').textContent=policy.renewal?fmtDate(policy.renewal):'—';
+  const eEl=document.getElementById('disp-entitlements'),xEl=document.getElementById('disp-exclusions');
+  eEl.textContent=policy.entitlements||'No policy entered yet. Click Edit to add your policy details.';
+  xEl.textContent=policy.exclusions||'—';
+  eEl.style.color=policy.entitlements?'var(--text)':'var(--text-muted)';
+  xEl.style.color=policy.exclusions?'var(--text)':'var(--text-muted)';
+}
+function togglePolicyEdit(show){
+  document.getElementById('policy-display').style.display=show?'none':'block';
+  document.getElementById('policy-edit').style.display=show?'block':'none';
+  if(show){['insurer','polnum','poltype','limit','excess','renewal','entitlements','exclusions'].forEach(k=>document.getElementById('pol-'+k).value=policy[k]||'');}
+}
+function savePolicy(){
+  policy={insurer:document.getElementById('pol-insurer').value,polnum:document.getElementById('pol-polnum').value,poltype:document.getElementById('pol-poltype').value,limit:document.getElementById('pol-limit').value,excess:document.getElementById('pol-excess').value,renewal:document.getElementById('pol-renewal').value,entitlements:document.getElementById('pol-entitlements').value,exclusions:document.getElementById('pol-exclusions').value};
+  saveAll(); renderPolicy(); togglePolicyEdit(false);
+}
+function renderClaims(){
+  const tbody=document.getElementById('claims-table');
+  if(!claims.length){tbody.innerHTML=emptyRow('No claims logged yet. Add your first claim above.',7);updateClaimsSummary();return;}
+  tbody.innerHTML=[...claims].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(c=>`<tr><td>${fmtDate(c.date)}</td><td>${c.type}</td><td style="font-size:13px;color:var(--text-muted)">${c.desc||'—'}</td><td>$${parseFloat(c.amount).toFixed(0)}</td><td>${c.reimbursed!=null?'$'+parseFloat(c.reimbursed).toFixed(0):'—'}</td><td><span class="badge ${c.reimbursed!=null?'badge-green':'badge-amber'}">${c.reimbursed!=null?'Paid':'Pending'}</span></td><td><button class="btn-del" onclick="deleteClaim('${c.id}')">✕</button></td></tr>`).join('');
+  updateClaimsSummary();
+}
+function updateClaimsSummary(){
+  const total=claims.reduce((s,c)=>s+parseFloat(c.amount||0),0);
+  const reimb=claims.reduce((s,c)=>s+(c.reimbursed!=null?parseFloat(c.reimbursed):0),0);
+  document.getElementById('ins-total-claimed').textContent='$'+total.toFixed(0);
+  document.getElementById('ins-total-reimbursed').textContent='$'+reimb.toFixed(0);
+  document.getElementById('ins-claims-count').textContent=claims.length+' claim'+(claims.length!==1?'s':'')+' logged';
+  document.getElementById('ins-pending-text').textContent=(total-reimb)>0?'$'+(total-reimb).toFixed(0)+' pending':'All settled';
+}
+function logClaim(){
+  const date=document.getElementById('cl-date').value,amount=document.getElementById('cl-amount').value; if(!date||!amount) return;
+  const rv=document.getElementById('cl-reimbursed').value;
+  claims.unshift({id:uid(),date,type:document.getElementById('cl-type').value,desc:document.getElementById('cl-desc').value,amount:parseFloat(amount),reimbursed:rv!==''?parseFloat(rv):null});
+  saveAll(); renderClaims();
+  ['cl-date','cl-amount','cl-reimbursed','cl-desc'].forEach(id=>document.getElementById(id).value='');
+}
+function deleteClaim(id){claims=claims.filter(c=>c.id!==id);saveAll();renderClaims();}
+
+// ===== AI =====
+async function callClaude(sys,msg,el){
+  el.innerHTML='<span class="spinner"></span> Thinking...';
+  try{
+    const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,system:sys,messages:[{role:'user',content:msg}]})});
+    const d=await r.json(),text=d.content?.[0]?.text||'No response.';
+    el.innerHTML=text.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/^### (.+)$/gm,'<h4 style="margin:10px 0 4px;font-size:14px;font-weight:600">$1</h4>').replace(/^## (.+)$/gm,'<h3 style="margin:12px 0 4px;font-size:15px;font-weight:600">$1</h3>');
+  }catch(e){el.innerHTML='<span style="color:var(--red)">Error contacting AI. Please try again.</span>';}
+}
+async function calcDiet(){
+  const r=document.getElementById('diet-result'),c=document.getElementById('diet-result-content');r.style.display='block';
+  await callClaude('You are a canine nutrition assistant. Provide practical, vet-aligned feeding guidance. Be concise and use clear sections. Format with **bold** for key numbers.',`Calculate daily calorie needs and feeding plan for:\n- Breed: ${document.getElementById('d-breed').value}, Age: ${document.getElementById('d-age').value} years, Weight: ${document.getElementById('d-weight').value} kg, Activity: ${document.getElementById('d-activity').value}\n- Food trial: ${document.getElementById('d-trial').value==='yes'?'Yes – '+document.getElementById('d-trialfood').value+(document.getElementById('d-trialweek').value?' week '+document.getElementById('d-trialweek').value:''):'No'}\n- Allergies/restrictions: ${document.getElementById('d-allergies').value||'none noted'}\nInclude: daily kcal target, portion size, meal frequency, food trial compliance tips, and any breed-specific watch-outs.`,c);
+}
+async function checkIngredient(){
+  const ing=document.getElementById('ing-input').value.trim(); if(!ing) return;
+  const r=document.getElementById('ing-result'),c=document.getElementById('ing-result-content');
+  r.style.display='block';r.className='ingredient-result';c.innerHTML='<span class="spinner"></span> Checking...';
+  try{
+    const res=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,system:'You are a dog safety expert. Respond ONLY with valid JSON: {"status":"safe"|"unsafe"|"caution","summary":"one sentence","detail":"2-3 sentences","trial_note":"note about food trial compliance if relevant"}',messages:[{role:'user',content:`Is "${ing}" safe for a West Highland White Terrier on a pork-only food trial (restricted to pork protein only — no chicken, beef, lamb, duck, fish, venison, or any other proteins; no commercial treats or table scraps)?`}]})});
+    const d=await res.json();let j;try{j=JSON.parse(d.content[0].text);}catch{j={status:'caution',summary:'Could not parse response',detail:d.content[0].text,trial_note:''};}
+    r.className='ingredient-result '+(j.status==='safe'?'safe':j.status==='unsafe'?'unsafe':'caution');
+    const icon=j.status==='safe'?'✅':j.status==='unsafe'?'🚫':'⚠️';
+    c.innerHTML=`<strong>${icon} ${j.summary}</strong><br><span style="color:var(--gray-5)">${j.detail}</span>${j.trial_note?`<br><em style="font-size:13px">${j.trial_note}</em>`:''}`;
+  }catch(e){r.className='ingredient-result caution';c.innerHTML='Error checking ingredient. Please try again.';}
+}
+document.getElementById('ing-input').addEventListener('keydown',e=>{if(e.key==='Enter')checkIngredient();});
+
+let currentRecipeType='meal';
+function setRecipeType(t){currentRecipeType=t;['meal','treat','topper'].forEach(x=>document.getElementById('recipe-type-'+x).classList.toggle('active',x===t));}
+async function generateRecipe(){
+  const r=document.getElementById('recipe-result'),c=document.getElementById('recipe-result-content');r.style.display='block';
+  await callClaude('You are a canine nutrition expert and chef. Create safe, practical homemade dog recipes. Format clearly with **bold** headings, ingredients list, and step-by-step method. Always note portion size and storage.',`Create a dog-safe ${currentRecipeType} recipe for a ${profile.weight||'9.5'}kg ${profile.breed||'West Highland White Terrier'}.\nRequirements: ${document.getElementById('recipe-req').value}\nAdditional notes: ${document.getElementById('recipe-notes').value||'none'}\nMake it simple to prepare at home.`,c);
+}
+async function generateSitterInstructions(){
+  const r=document.getElementById('sitter-result'),c=document.getElementById('sitter-result-content');r.style.display='block';
+  const age=calcAge(profile.dob);
+  await callClaude('You are helping a dog owner create a professional, detailed care sheet for their sitter. Format it clearly with sections. Use **bold** for section headings. Be thorough and practical.',`Create a care sheet for ${document.getElementById('sit-name').value||'Sitter'} caring for ${profile.name}, a ${age} ${profile.weight}kg ${profile.breed}, during: ${document.getElementById('sit-dur').value||'upcoming stay'}.\n\nDog profile: ${profile.breed}, ${age}, ${profile.weight} kg, ${profile.gender}${profile.neutered==='Yes'?' (neutered)':''}\nCurrent health: On a pork-only elimination food trial for suspected dietary allergy.\nDiet: Pork-based food only — absolutely no treats, table scraps, or any other protein\nWalking: 1–2 short walks per day, ~20–30 min each\n\nSpecial notes from owner: ${document.getElementById('sit-notes').value}\n\nInclude sections: Feeding, Walks & exercise, Behaviour & temperament, Emergency contacts, Important don'ts.`,c);
+}
+
+// ===== NAVIGATION =====
+document.querySelectorAll('.nav-item').forEach(item=>item.addEventListener('click',()=>showPanel(item.dataset.panel)));
+function showPanel(id){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.panel===id));
+}
+
+// ===== INIT =====
+(function(){
+  const session=JSON.parse(localStorage.getItem('pp_session')||'null');
+  if(session && session.expires > Date.now()){
+    showLoadingScreen();
+    loadAll().then(showApp).catch(e=>{
+      document.getElementById('loading-msg').textContent='Failed to load data. Check your connection and try refreshing.';
+    });
+  } else {
+    document.getElementById('auth-screen').style.display='flex';
+    document.getElementById('loading-screen').style.display='none';
+  }
+})();
+</script>
+</body>
+</html>
