@@ -90,6 +90,7 @@
     border: 1px solid var(--gray-2);
     box-shadow: var(--shadow);
     opacity: 0; transition: opacity 0.25s; z-index: 500; pointer-events: none;
+    max-width: 380px; word-break: break-word;
   }
   .save-status.visible { opacity: 1; }
   .save-status.saving { color: var(--text-muted); }
@@ -945,30 +946,35 @@ function saveAll() {
   try { localStorage.setItem('pp_state', JSON.stringify(state)); } catch(e) {}
   if(saveTimer) clearTimeout(saveTimer);
   setSaveStatus('saving');
+  // Exclude photo from Supabase payload to keep payload small
+  const cloudState = { profile, walks, trial:trialLog, records, reminders, claims, policy, feeding };
   saveTimer = setTimeout(async () => {
-    // Exclude photo from Supabase payload — photo lives in localStorage
-    // This keeps the cloud payload small and avoids PostgREST body limits
-    const cloudState = { profile, walks, trial:trialLog, records, reminders, claims, policy, feeding };
     try {
       const res = await fetch('/api/db', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ k:'app_state', value:cloudState }) });
       if(!res.ok) {
-        const err = await res.json().catch(()=>({}));
-        console.error('PawPal cloud sync error:', err);
-        throw new Error();
+        const errBody = await res.json().catch(() => ({}));
+        const msg = errBody.error || 'Unknown error';
+        console.error('PawPal cloud sync failed:', msg);
+        setSaveStatus('error', msg);
+        return;
       }
       setSaveStatus('saved');
-    } catch(e) { setSaveStatus('error'); }
+    } catch(e) {
+      setSaveStatus('error', 'Network error — check connection');
+    }
   }, 400);
 }
 
 let statusTimer = null;
-function setSaveStatus(s) {
+function setSaveStatus(s, errMsg) {
   const el = document.getElementById('save-status');
   if(statusTimer) clearTimeout(statusTimer);
   el.className = 'save-status visible ' + s;
-  el.textContent = s==='saving' ? '💾 Saving...' : s==='saved' ? '✓ Synced' : '⚠ Saved locally — cloud sync failed';
+  if(s==='saving') el.textContent = '💾 Saving...';
+  else if(s==='saved') el.textContent = '✓ Synced';
+  else el.textContent = '⚠ ' + (errMsg || 'Cloud sync failed');
   if(s==='saved') statusTimer = setTimeout(() => el.className='save-status', 2000);
-  if(s==='error') statusTimer = setTimeout(() => el.className='save-status', 5000);
+  if(s==='error') statusTimer = setTimeout(() => el.className='save-status', 8000);
 }
 
 // ===== HELPERS =====
