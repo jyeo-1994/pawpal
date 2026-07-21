@@ -11,6 +11,11 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'SUPABASE_URL or SUPABASE_SERVICE_KEY not set in Vercel environment variables.' });
   }
 
+  // Strip any path the user may have included (e.g. /rest/v1 or trailing slash)
+  // We always want just https://xxxx.supabase.co
+  const BASE = SUPABASE_URL.replace(/\/+$/, '').replace(/\/rest.*$/, '').replace(/\/graphql.*$/, '');
+  const API  = `${BASE}/rest/v1`;
+
   const headers = {
     'Content-Type': 'application/json',
     'apikey': SUPABASE_KEY,
@@ -20,14 +25,14 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const { k } = req.query;
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/app_data?key=eq.${encodeURIComponent(k)}&select=value`, { headers });
+      const r = await fetch(`${API}/app_data?key=eq.${encodeURIComponent(k)}&select=value`, { headers });
       const data = await r.json();
       return res.json({ value: data[0]?.value ?? null });
     }
 
     if (req.method === 'POST') {
       const { k, value } = req.body;
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/app_data`, {
+      const r = await fetch(`${API}/app_data`, {
         method: 'POST',
         headers: { ...headers, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
         body: JSON.stringify({ key: k, value, updated_at: new Date().toISOString() })
