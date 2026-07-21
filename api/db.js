@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
   if (!SUPABASE_URL || !SUPABASE_KEY) {
-    return res.status(500).json({ error: 'Supabase credentials not configured. Add SUPABASE_URL and SUPABASE_SERVICE_KEY in your Vercel environment variables.' });
+    return res.status(500).json({ error: 'Supabase credentials not configured.' });
   }
 
   const sbHeaders = {
@@ -24,14 +24,7 @@ export default async function handler(req, res) {
         `${SUPABASE_URL}/rest/v1/app_data?key=eq.${encodeURIComponent(k)}&select=value`,
         { headers: sbHeaders }
       );
-      if (!response.ok) {
-        const errText = await response.text();
-        return res.status(500).json({ error: 'Database read failed: ' + errText });
-      }
       const data = await response.json();
-      if (data && data.code) {
-        return res.status(500).json({ error: 'Supabase error: ' + (data.message || data.code) });
-      }
       return res.json({ value: data[0]?.value ?? null });
     }
 
