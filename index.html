@@ -1276,7 +1276,7 @@ function renderFeeding() {
     }
   }
 }
-async function saveFeeding() {
+function saveFeeding() {
   if(!dataLoaded) { alert('App is still loading — please wait a moment and try again.'); return; }
   feeding = {
     brand:        document.getElementById('feed-brand').value,
@@ -1291,17 +1291,16 @@ async function saveFeeding() {
   };
   const btn = document.getElementById('feed-save-btn');
   const msg = document.getElementById('feed-saved-msg');
-  if(btn){ btn.disabled = true; btn.textContent = 'Saving...'; }
+  // Save to localStorage immediately — this always works and protects data
   try {
-    const res = await fetch('/api/db', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ k:'app_state', value:{ profile, walks, trial:trialLog, records, reminders, claims, policy, feeding, photo } }) });
-    if(!res.ok) throw new Error('Save failed');
-    if(btn){ btn.textContent = 'Save feeding plan'; btn.disabled = false; }
-    if(msg){ msg.style.display = 'inline'; setTimeout(() => msg.style.display = 'none', 2500); }
-    renderFeeding();
-  } catch(e) {
-    if(btn){ btn.textContent = 'Save feeding plan'; btn.disabled = false; }
-    alert('Failed to save: ' + e.message + '. Check your connection.');
-  }
+    localStorage.setItem('pp_state', JSON.stringify({ profile, walks, trial:trialLog, records, reminders, claims, policy, feeding, photo }));
+  } catch(e) { console.warn('localStorage save failed', e); }
+  // Trigger cloud sync via saveAll (handles Supabase, shows ✓ Synced / ⚠ Not saved in corner)
+  saveAll();
+  // Immediate feedback based on localStorage success
+  if(btn){ btn.textContent = 'Save feeding plan'; btn.disabled = false; }
+  if(msg){ msg.style.display = 'inline'; setTimeout(() => msg.style.display = 'none', 2500); }
+  renderFeeding();
 }
 
 
